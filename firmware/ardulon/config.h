@@ -10,24 +10,21 @@
 //from 1 AVALON
 #define REPORT_P1   25  //(D0)   //NOT CHANGE THIS !
 #define REPORT_N1   26  //(D1)   //NOT CHANGE THIS !
-#define REPORT_DATA_DETECTOR   30  //(D9)   //NOT CHANGE THIS !
 
 //to AVALON
 #define CONFIG_P1   27  //(D2)   //NOT CHANGE THIS !
 #define CONFIG_N1   28  //(D3)   //NOT CHANGE THIS !
 
 //reset avalon
-#define RESET_PIN   29  //(D6)   //NOT CHANGE THIS !
+#define RESET_PIN   29  //(D4)   //NOT CHANGE THIS !
 
 ////////////////////////
 //AVALON CONFIGURATION
-#define AVALON_FREQUENCY  1000     //MHz 
+#define AVALON_FREQUENCY 800    
 #define AVALON_ASIC_COUNT 1        
 #define AVALON_DATA_SIZE  256    //bytes
-#define AVALON_CLK_LOW_CFG    0x00000007            //(F + 1) = freq/25 , R = 0 , OD = 0
-#define AVALON_CLK_HIGH_CFG   0x00000000            //reserved
-
-//00000000000000000000000000000111
+#define AVALON_CLK_LOW_CFG    0x00000007            //F = freq/50 - 1   R = 0  OD = 0  
+#define AVALON_CLK_HIGH_CFG   0x00000000            
 
 //////UART////////////////////////////
 #define UART_BUFFER_SIZE 256          //bytes

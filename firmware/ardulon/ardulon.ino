@@ -27,6 +27,7 @@
 //                                                                                                     //
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
 #include "config.h"
 
 //HW: Arduino Due 
@@ -111,7 +112,6 @@ void setup() {
 
   pinMode(REPORT_P1,INPUT);
   pinMode(REPORT_N1,INPUT);
-  pinMode(REPORT_DATA_DETECTOR,INPUT);
 
   pinMode(CONFIG_P1,OUTPUT);
   pinMode(CONFIG_N1,OUTPUT);
@@ -135,16 +135,10 @@ void setup() {
   NVIC_EnableIRQ(PIOD_IRQn);
  
   //enable rising edge interrupt for D0,D1
-  REG_PIOD_AIMER  = 0x03;   //  Aditional interrupt mode low,high,falling,rising
-  REG_PIOD_ESR    = 0x03;   // "Edge" Select Register
+  REG_PIOD_AIMER  = 0x03;    //  Aditional interrupt mode low,high,falling,rising
+  REG_PIOD_ESR    = 0x03;    // "Edge" Select Register
   REG_PIOD_REHLSR = 0x03;   // "Rising Edge / High Level" Select Register
   REG_PIOD_IER    = 0x03;   // Interrupt enable register
-  
-  //enable falling edge interrupt for D9
-  REG_PIOD_AIMER  |= 1<<9;   //  Aditional interrupt mode low,high,falling,rising
-  REG_PIOD_ESR    |= 1<<9;   // "Edge" Select Register
-  REG_PIOD_FELLSR  = 1<<9;   // "Falling Edge / Low Level" Select Register
-  REG_PIOD_IER    |= 1<<9;   // Interrupt enable register
   
   // Disable interrupt
   //REG_PIOD_IDR = 0x03;  
@@ -152,7 +146,7 @@ void setup() {
 
 void loop() {
 
-  //for(uint8_t i = 0; i<10 ;i++)    //1 microsecond delay  //este odtestovat !!!!!
+  //for(uint8_t i = 0; i<10 ;i++)    //1 microsecond delay
   //    delay100;
   
   //read data from avalon buffer and send to uart 
@@ -200,7 +194,14 @@ void loop() {
       newJobFromUart --;   
     }
   }  
-  
+/*
+  if(avalonNumberOfBitsRX > 0){ //received nonce found
+        
+     nonceNotReaded ++; 
+     avalonFrameTransfered = 0; 
+     avalonNumberOfBitsRX = 0;   
+  }*/
+
   checkSerialDataAvailable();
 }
 
@@ -416,7 +417,7 @@ void initTimer(Tc *tc, uint32_t channel, IRQn_Type irq, uint32_t frequency) {
   NVIC_EnableIRQ(irq);
 }
 
-inline void stopTimer(IRQn_Type irq)
+void stopTimer(IRQn_Type irq)
 {
   NVIC_DisableIRQ(irq);
   pmc_disable_periph_clk((uint32_t)irq);
@@ -475,7 +476,20 @@ void avalonPrecalculations(){
   
   volatile uint32_t t1,t2,s0,s1,maj,ch;
   volatile uint32_t a,b,c,d,e,f,g,h;
- 
+
+  //initialise variables 
+  //first 32 bits of the fractional parts of the square roots of the first 8 primes
+  /* 
+  a = 0x6a09e667;
+  b = 0xbb67ae85;
+  c = 0x3c6ef372;
+  d = 0xa54ff53a;
+  e = 0x510e527f;
+  f = 0x9b05688c;
+  g = 0x1f83d9ab;
+  h = 0x5be0cd19;
+  */
+  
   //BigEndian
 
   a = m[0];
@@ -520,7 +534,62 @@ void avalonPrecalculations(){
       a2 = a;
       e2 = e; 
     }        
-  }    
+  } 
+  
+  /*
+  volatile uint32_t x, y, z;
+  
+  for(uint8_t n = 0; n < 3; n++) {
+
+    
+        x = m[5-n] ^ m[6-n];
+        x = x & m[4-n];
+        x = m[6-n] ^ x;
+        x += k[n];
+        x += w[n];
+        x += m[7-n];
+        y = ror32(m[4-n], 26);
+        z = ror32(m[4-n], 21);
+        z = y^z;
+        y = ror32(m[4-n], 7);
+        z = y^z;
+        m[7-n] = z+x;
+        m[3-n] = m[3-n] + m[7-n];
+        x = ror32(m[r(0)], 30);
+        y = ror32(m[r(0)], 19);
+        y = y^x;
+        x = ror32(m[r(0)], 10);
+        y = x^y;
+        x = m[r(0)] | m[r(1)];
+        x = m[r(2)] & x;
+        z = m[r(0)] & m[r(1)];
+        x = x | z;
+        m[7-n] += y + x;
+
+     if(n == 0){
+      a0 = m[7];
+      e0 = m[3];
+     }else if(n == 1){
+      a1 = m[6];
+      e1 = m[2];
+     }else if(n == 2){
+      a2 = m[5];
+      e2 = m[1]; 
+     }
+  }
+  */
+  /*
+  R1(w[0], k[0]);
+  a0 = m[7];
+  e0 = m[3];
+  R2();
+  R1(w[1], k[1]);
+  a1 = m[7];
+  e1 = m[3];
+  R2();
+  R1(w[2], k[2]);
+  a2 = m[7];
+  e2 = m[3];*/   
 }
 
 void buildClockSegment(uint32_t frequency){
@@ -544,8 +613,9 @@ void buildClockSegment(uint32_t frequency){
 
   //clockConfig = 0b0000000000000000000000010111010000000000000000110000000000000111;
   
-  clockConfig[0] |= (uint32_t) ((((frequency/25)-1) << 21) & 0xFFFFFFFF);
-  
+  //clockConfig[0] |= (uint32_t) ((frequency << 18) &0xFFFFFFFF);
+  clockConfig[0] |= (uint32_t) ((((frequency/50) - 1) << 21) &0xFFFFFFFF);
+   
   serialize32TXAvalon(clockConfig[0]);
   serialize32TXAvalon(clockConfig[1]);
 }
@@ -588,7 +658,7 @@ void buildDataSegment(){
   //fill midstate to buffer
   for(uint8_t i = 0; i < MIDSTATE_LENGTH/4 ; i++){
     midstateArray[((MIDSTATE_LENGTH/4)-1)- i] = byteSwap(read32());
-    m[((MIDSTATE_LENGTH/4)-1)- i] = (midstateArray[((MIDSTATE_LENGTH/4)-1)- i]);
+    m[((MIDSTATE_LENGTH/4)-1)- i] = /*byteSwap*/(midstateArray[((MIDSTATE_LENGTH/4)-1)- i]);
     #ifdef DEBUGGING 
       char tmp[10];
       sprintf(tmp, "%04x", midstateArray[((MIDSTATE_LENGTH/4)-1)- i]);
@@ -614,7 +684,7 @@ void buildDataSegment(){
   //fill data to buffer
   for(uint8_t i = 0; i < DATA_LENGTH/4 ; i++){
     dataArray[((DATA_LENGTH/4)-1)-i] = byteSwap(read32());
-    w[((DATA_LENGTH/4)-1)-i] = (dataArray[((DATA_LENGTH/4)-1)-i]);
+    w[((DATA_LENGTH/4)-1)-i] = /*byteSwap*/(dataArray[((DATA_LENGTH/4)-1)-i]);
 
     #ifdef DEBUGGING 
       char tmp1[10];
@@ -629,24 +699,24 @@ void buildDataSegment(){
 
   //data 12 bytes
   for(uint8_t i = 0; i < DATA_LENGTH/4 ; i++){
-     serialize32TXAvalon(dataArray[i]);
+     serialize32TXAvalon(/*byteSwap*/(dataArray[i]));
   } 
   
   //precalculating values  
   avalonPrecalculations();
 
-  serialize32TXAvalon(a1);
-  serialize32TXAvalon(a0);
-  serialize32TXAvalon(e2);
-  serialize32TXAvalon(e1);
-  serialize32TXAvalon(e0);
+  serialize32TXAvalon(/*byteSwap*/(a1));
+  serialize32TXAvalon(/*byteSwap*/(a0));
+  serialize32TXAvalon(/*byteSwap*/(e2));
+  serialize32TXAvalon(/*byteSwap*/(e1));
+  serialize32TXAvalon(/*byteSwap*/(e0));
 
   //midstate 32 bytes
   for(uint8_t i = 0; i < MIDSTATE_LENGTH/4 ; i++)
-    serialize32TXAvalon(midstateArray[i]);
+    serialize32TXAvalon(/*byteSwap*/(midstateArray[i]));
 
   //precalculating value
-  serialize32TXAvalon(a2);
+  serialize32TXAvalon(/*byteSwap*/(a2));
 }
 
 void buildNonceConfiguration(){
@@ -656,6 +726,20 @@ void buildNonceConfiguration(){
   for(uint16_t i = 0; i < AVALON_ASIC_COUNT; i++){
       serialize32TXAvalon(base*i); 
   }      
+  
+  /*    
+  //for 10 avalons   2^32/10 => 0x19999999 * (n-1) = n start address range
+  serialize32TXAvalon(0x00000000); //1 avalon address range 0x00000000 to 0x19999998
+  serialize32TXAvalon(0x19999999); //...
+  serialize32TXAvalon(0x33333332);
+  serialize32TXAvalon(0x4CCCCCCB);
+  serialize32TXAvalon(0x66666664);
+  serialize32TXAvalon(0x7FFFFFFD);
+  serialize32TXAvalon(0x99999996);
+  serialize32TXAvalon(0xB333332F);
+  serialize32TXAvalon(0xCCCCCCC8);
+  serialize32TXAvalon(0xE6666661);
+  */
 }
 
 //multibyte variable to single bytes
@@ -823,8 +907,47 @@ void TC3_Handler(){
         
         ::[count] "r" (avalonNumberOfBitsTX),[comparator] "r" (avalonBitCounterTX),[array] "r" (avalonDataTXBitArray)  
    );
-    
-   //REG_PIOD_IER = 0x03 + (1<<9); 
+   
+   /* asm volatile( 
+        ".equ PIOD_ODSR, 0x400E1438" "\n\t" //PORTD Output Data Status Register
+        "mov r4, 0x00" "\n\t"               //word counter     
+        "mov r5, 0x0C" "\n\t"
+        "ldr r6, = PIOD_ODSR" "\n\t"
+        "mov r7, 0x00" "\n\t"                  
+        "start:" "\n\t"                    //one bit transfer     
+        "str r7, [r6]" "\n\t"                   
+        "ldr r8, [%[array],%[count]]" "\n\t" 
+        "add %[count], %[count], 0x01" "\n\t" //count++
+        "nop" "\n\t"
+        "nop" "\n\t"
+        "nop" "\n\t"
+        "nop" "\n\t"
+        "str r8, [r6]" "\n\t"
+        "add r4, r4, 0x01" "\n\t"           //count++
+        "cmp r4, 0x20" "\n\t"               // if complete word  
+        "bge completeword" "\n\t"           // if count < comparator => start  
+        "b start" "\n\t"
+        
+        "completeword:" "\n\t"              //one complete word  
+        "nop" "\n\t"
+        "nop" "\n\t"
+        "nop" "\n\t"
+        "nop" "\n\t"
+        "str r5, [r6]" "\n\t"               // idle mode
+        "cmp %[count], %[comparator]" "\n\t"  
+        "bge end" "\n\t"                    // if count < comparator => start       
+        "mov r4, 0x00" "\n\t"               //null counter     
+        "nop" "\n\t"                        //some delay before new frame
+        "nop" "\n\t"
+        "nop" "\n\t"
+        "nop" "\n\t"
+        "nop" "\n\t"
+        "b start" "\n\t"
+        
+        "end:" "\n\t"
+        
+        ::[count] "r" (avalonNumberOfBitsTX),[comparator] "r" (avalonBitCounterTX),[array] "r" (avalonDataTXBitArray)  
+   );*/
     
    avalonBitCounterTX = 0;
    avalonNumberOfBitsTX = 0;
@@ -835,7 +958,51 @@ void TC3_Handler(){
 // Interrupt driven receiver from Avalon
 // *******************************************************
 //time critical operations !!! dont add code this!!! 
-//this handler is running on falling D9
+//this handler is running on rising D0 or D1
+//void PIOD_Handler(void) {
+/*
+void PIOD_Handler( void )
+{
+   
+   asm volatile( 
+        ".equ PIOD_ISR, 0x400E144C" "\n\t" //PORTD Interrupt Status Register
+        "mov r4, 0x00" "\n\t"                //set timeout ticks to 0
+        "ldr r5, = PIOD_ISR" "\n\t"  
+        "readbit:" "\n\t"                    //one bit receiving     
+        "ldr r6, [r5]" "\n\t"
+        "and r6, r6, 0x03" "\n\t"          //PIOD_ISR&3 
+        "cmp r6, 0x00" "\n\t"               
+        "beq checktimeout" "\n\t"          //if nothing received  => check timeout     
+        "mov r4, 0x00" "\n\t"              // reset timeout ticks
+        "str r6, [%[array],%[count]]" "\n\t"
+        "add %[count], %[count], 0x01" "\n\t" //count++
+        "cmp %[count], 0x20" "\n\t"            
+        "bne readbit" "\n\t"           // if count != 32 => start  
+        "b end" "\n\t"                  //if readed nonce = > end     
+       
+        "checktimeout:" "\n\t"                        
+        "add r4, r4, 0x01" "\n\t"             //r4 += 1
+        "cmp r4, 0xCF" "\n\t"                 //200 ticks = timeout
+        "beq end" "\n\t"                      //if timeout reached = > end     
+        "b readbit" "\n\t"                   //else readbit     
+        
+        "failend:" "\n\t"                          
+        "mov %[count], 0x00" "\n\t"
+        
+        "end:" "\n\t"                          
+        "mov %[countout], %[count]" "\n\t"
+        
+        :[countout] "=r" (avalonNumberOfBitsRX) : [count] "r" (avalonNumberOfBitsRX), [array] "r" (avalonBitArrayRX)  
+   );   
+}
+
+*/
+
+// *******************************************************
+// Interrupt driven receiver from Avalon
+// *******************************************************
+//time critical operations !!! dont add code this!!! 
+//this handler is running on rising D0 or D1
 
 void PIOD_Handler(void) {
      
@@ -852,7 +1019,7 @@ void PIOD_Handler(void) {
         "beq check" "\n\t"                         
         "str r6, [%[array],%[count]]" "\n\t"
         "add %[count], %[count], 0x01" "\n\t" //count++
-        "b readbit" "\n\t"             
+        "b readbit" "\n\t"           // if count != 32 => start  
         
         "check:" "\n\t"                          
         "ldr r7, [r4]" "\n\t"
