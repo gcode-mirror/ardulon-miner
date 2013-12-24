@@ -7898,6 +7898,7 @@ Source: www.mpe-connector.de / garry_shortform_2012.pdf</description>
 <text x="-881.38" y="-71.12" size="6.4516" layer="91">FIX: CORE_VOLTAGE 0.9V NOT 1.2V</text>
 <text x="-881.38" y="-81.28" size="6.4516" layer="91">FIX: PLL_VOLTAGE 1V NOT 1.2V</text>
 <text x="60.96" y="-215.9" size="3.81" layer="94">CC BY-NC-SA 3.0</text>
+<text x="-881.38" y="-91.44" size="6.4516" layer="91">BUG ONLY IN DESCRIPTION ARDUINO SHIELD WITH CORRECT VOLTAGE</text>
 </plain>
 <instances>
 <instance part="U$1" gate="G$1" x="-810.26" y="231.14"/>
